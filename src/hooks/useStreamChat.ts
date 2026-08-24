@@ -1,13 +1,13 @@
 // src/hooks/useStreamChat.ts
 import { useState, useCallback, useRef } from 'react';
 
-export function useStreamChat(apiKey: string) {
+export function useStreamChat() {
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   const send = useCallback(async (userPrompt: string) => {
-    if (!apiKey) return;
+    if (!userPrompt.trim()) return;
     setLoading(true);
     setAnswer('');
 
@@ -15,17 +15,9 @@ export function useStreamChat(apiKey: string) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'glm-4-flash',
-        stream: true,
-        messages: [{ role: 'user', content: userPrompt }]
-      }),
+    // 请求本地FastAPI后端代理接口
+    const res = await fetch(`http://127.0.0.1:8000/api/stream/chat?q=${encodeURIComponent(userPrompt)}`, {
+      method: 'GET',
       signal: ctrl.signal
     });
 
@@ -57,12 +49,18 @@ export function useStreamChat(apiKey: string) {
       }
     }
     setLoading(false);
-  }, [apiKey]);
+  }, []);
 
   const stop = () => {
     abortRef.current?.abort();
     setLoading(false);
   };
 
-  return { loading, answer, send, stop };
+  const clear = () => {
+    abortRef.current?.abort();
+    setLoading(false);
+    setAnswer('');
+  };
+
+  return { loading, answer, send, stop, clear };
 }
